@@ -1,1 +1,71 @@
+---
+- name: Install and configure Cowrie SSH honeypot
+  hosts: all
+  become: yes
+  vars:
+    current_user: "{{ ansible_user_id }}"
+  tasks:
+    - name: Install required packages
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - python3-virtualenv
+        - libssl-dev
+        - libffi-dev
+        - build-essential
+        - libpython3-dev
+        - python3-minimal
+        - authbind
+        - git
+        - iptables
 
+    - name: Clone Cowrie repository
+      git:
+        repo: https://github.com/cowrie/cowrie
+        dest: "/home/{{ current_user }}/cowrie"
+        update: yes
+      become_user: "{{ current_user }}"
+
+    - name: Create virtual environment
+      shell: virtualenv --python=python3 "/home/{{ current_user }}/cowrie/cowrie-env"
+      args:
+        creates: "/home/{{ current_user }}/cowrie/cowrie-env/bin/activate"
+      become_user: "{{ current_user }}"
+
+    - name: Activate virtual environment and install requirements
+      shell: |
+        source "/home/{{ current_user }}/cowrie/cowrie-env/bin/activate" && \
+        pip install --upgrade pip && \
+        pip install --upgrade -r "/home/{{ current_user }}/cowrie/requirements.txt"
+      args:
+        executable: /bin/bash
+      become_user: "{{ current_user }}"
+
+    - name: Set permissions for Cowrie directory
+      file:
+        path: "/home/{{ current_user }}/cowrie"
+        recurse: yes
+        mode: "0777"
+      become: yes
+      become_user: root
+
+    - name: Configure iptables redirection for port 22 (SSH)
+      command: iptables -t nat -A PREROUTING -p tcp --dport 22 -j REDIRECT --to-port 2222
+
+    - name: Configure iptables redirection for port 23 (Telnet)
+      command: iptables -t nat -A PREROUTING -p tcp --dport 23 -j REDIRECT --to-port 2223
+
+    - name: Configure authbind for port 22
+      file:
+        path: /etc/authbind/byport/22
+        owner: "{{ current_user }}"
+        group: "{{ current_user }}"
+        mode: "0770"
+        state: touch
+      become: yes
+
+    - name: Start Cowrie SSH honeypot
+      shell: "/home/{{ current_user }}/cowrie/bin/cowrie start"
+      become_user: "{{ current_user }}"
+      ignore_errors: yes
