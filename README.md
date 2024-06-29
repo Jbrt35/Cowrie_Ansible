@@ -20,7 +20,11 @@ cd Cowrie_Ansible
 ```
 ansible-playbook -i hosts.ini cowrie_install.yaml
 ```
-Ce playbook démarre automatiquement le honeypot Cowrie pour le couper :
+Pour démarrer cowrie :
+```
+bin/cowrie start
+```
+Et pour le couper
 ```
 bin/cowrie stop
 ```
