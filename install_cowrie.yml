@@ -64,8 +64,3 @@
         mode: "0770"
         state: touch
       become: yes
-
-    - name: Start Cowrie SSH honeypot
-      shell: "/home/{{ current_user }}/cowrie/bin/cowrie start"
-      become_user: "{{ current_user }}"
-      ignore_errors: yes
